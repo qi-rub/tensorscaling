@@ -131,14 +131,15 @@ def parse_targets(targets, shape):
 
 
 class Result:
-    def __init__(self, success, iterations):
+    def __init__(self, success, iterations, max_dist, gs, psi):
         self.success = success
         self.iterations = iterations
-        self.gs = None
-        self.psi = None
+        self.max_dist = max_dist
+        self.gs = gs
+        self.psi = psi
 
     def __repr__(self):
-        return f"Result(success={self.success}, iterations={self.iterations}, ...)"
+        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
 
     def __bool__(self):
         return self.success
@@ -188,24 +189,25 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
 
     it = 0
     psi_initial = psi
-    while not max_iterations or it < max_iterations:
-        # compute distances and check if we are done
+    while True:
+        # compute current tensor and distances
         psi = scale_many(gs, psi_initial)
         psi /= np.linalg.norm(psi)
-
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         if verbose:
             print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
+
+        # check if we are done
         if max_dist <= eps:
             if verbose:
                 print("success!")
 
             # fix up scaling matrices so that result of scaling is a unit vector
-            res = Result(True, it)
-            res.gs = gs
-            res.psi = psi
-            return res
+            return Result(True, it, max_dist, gs, psi)
+
+        if max_iterations and it == max_iterations:
+            break
 
         # scale worst marginal using Cholesky decomposition
         rho = marginal(psi, sys)
@@ -218,4 +220,4 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
 
     if verbose:
         print("did not converge!")
-    return Result(False, it)
+    return Result(False, it, max_dist, gs, psi)
