@@ -114,3 +114,17 @@ def test_scale_failure(shape, targets, eps):
     psi = random_tensor(shape)
     res = scale(psi, targets, eps)
     assert not res and not res.success
+
+
+def test_scale_without_randomization():
+    psi = unit_tensor(2, 3)
+
+    # for this spectrum, it doesn't matter whether we randomize or not
+    targets = ([0.5, 0.5], [0.5, 0.5], [0.5, 0.5])
+    assert scale(psi, targets, 1e-4)
+    assert scale(psi, targets, 1e-4, randomize=False)
+
+    # but for this one it matters
+    targets = ([0.6, 0.4], [0.5, 0.5], [0.5, 0.5])
+    assert scale(psi, targets, 1e-4)
+    assert not scale(psi, targets, 1e-4, randomize=False)
