@@ -25,6 +25,18 @@ def test_random_unitary(n):
     assert np.allclose(U @ U.T.conj(), np.eye(n))
 
 
+@pytest.mark.parametrize("n", [2, 3, 4])
+def test_random_spectrum(n):
+    spec = random_spectrum(n)
+    assert is_spectrum(spec)
+
+
+@pytest.mark.parametrize("shape", [(2, 2, 2), (3, 4, 5)])
+def test_random_targets(shape):
+    targets = random_targets(shape)
+    assert all(is_spectrum(spec) for spec in targets)
+
+
 @pytest.mark.parametrize("shape", [(2, 2, 2), (3, 4, 5)])
 @pytest.mark.parametrize("k", [0, 1, 2])
 def test_marginal_of_random_tensor(shape, k):

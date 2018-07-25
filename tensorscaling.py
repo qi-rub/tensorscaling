@@ -7,10 +7,13 @@ __all__ = [
     "unit_tensor",
     "random_tensor",
     "random_unitary",
+    "random_spectrum",
+    "random_targets",
     "marginal",
     "scale_one",
     "scale_many",
     "marginal_distances",
+    "is_spectrum",
     "parse_targets",
     "Result",
     "scale",
@@ -40,12 +43,33 @@ def random_unitary(n):
     return Q
 
 
+def random_spectrum(n):
+    """
+    Return random non-increasing probability distribution.
+
+    TODO: Currently this only produces non-singular spectra.
+    """
+    while True:
+        # x = np.random.random(n - 1)
+        x = np.random.randint(100, size=n - 1) / 100
+        x = np.array([0] + sorted(x) + [1])
+        x = sorted(x[1:] - x[:-1], reverse=True)
+        if x[-1]:
+            break
+
+    return np.array(x)
+
+
+def random_targets(shape):
+    return [random_spectrum(n) for n in shape]
+
+
 def marginal(psi, k):
     """Return k-th quantum marginal (reduced density matrix)."""
     shape = psi.shape
     psi = np.moveaxis(psi, k, 0)
     psi = np.reshape(psi, (shape[k], np.prod(shape) // shape[k]))
-    return np.dot(psi, psi.T.conj())
+    return psi @ psi.T.conj()
 
 
 def scale_one(g, k, psi):
@@ -82,18 +106,8 @@ def marginal_distances(psi, targets):
     }
 
 
-class Result:
-    def __init__(self, success, iterations):
-        self.success = success
-        self.iterations = iterations
-        self.gs = None
-        self.psi = None
-
-    def __repr__(self):
-        return f"Result(success={self.success}, iterations={self.iterations}, ...)"
-
-    def __bool__(self):
-        return self.success
+def is_spectrum(spec):
+    return np.isclose(np.sum(spec), 1) and all(spec[:-1] >= spec[1:])
 
 
 def parse_targets(targets, shape):
@@ -108,7 +122,7 @@ def parse_targets(targets, shape):
         len(spec) == shape[k] for k, spec in targets.items()
     ), "target dimension mismatch"
     assert all(
-        np.isclose(np.sum(spec), 1) for spec in targets.values()
+        is_spectrum(spec) for spec in targets.values()
     ), "target spectra should sum to one"
     assert all(
         all(spec[:-1] >= spec[1:]) for spec in targets.values()
@@ -116,7 +130,21 @@ def parse_targets(targets, shape):
     return targets
 
 
-def scale(psi, targets, eps, max_iterations=100, randomize=True, verbose=False):
+class Result:
+    def __init__(self, success, iterations):
+        self.success = success
+        self.iterations = iterations
+        self.gs = None
+        self.psi = None
+
+    def __repr__(self):
+        return f"Result(success={self.success}, iterations={self.iterations}, ...)"
+
+    def __bool__(self):
+        return self.success
+
+
+def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     """
     Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
     diagonal matrices with the given eigenvalues ("target spectra").
@@ -139,35 +167,41 @@ def scale(psi, targets, eps, max_iterations=100, randomize=True, verbose=False):
     assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
 
     # convert targets to dictionary of arrays
-    targets = parse_targets(targets, psi.shape)
+    shape = psi.shape
+    targets = parse_targets(targets, shape)
 
     if verbose:
-        print(f"scaling tensor of shape {psi.shape}")
+        print(f"scaling tensor of shape {shape} and type {psi.dtype}")
         print("target spectra:")
         for k, spec in targets.items():
             print(f"  {k}: {tuple(spec)}")
 
     # randomize by local unitaries
-    gs = {k: np.eye(psi.shape[k]) for k in targets}
     if randomize:
-        for k in targets:
-            U = random_unitary(psi.shape[k])
-            psi = scale_one(U, k, psi)
-            gs[k] = U
+        gs = {k: random_unitary(shape[k]) for k in targets}
+    else:
+        gs = {k: np.eye(shape[k]) for k in targets}
 
-    # TODO: should truncate tensor and spectrum when the latter is singular
+    # TODO: should truncate tensor and spectrum and apply algorithm
     if any(np.isclose(spec[-1], 0) for spec in targets.values()):
         raise NotImplementedError("singular target marginals")
 
-    for it in range(max_iterations):
+    it = 0
+    psi_initial = psi
+    while not max_iterations or it < max_iterations:
         # compute distances and check if we are done
+        psi = scale_many(gs, psi_initial)
+        psi /= np.linalg.norm(psi)
+
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         if verbose:
-            print(f"#{it:03d}: max_dist = {max_dist} (system {sys})")
+            print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
         if max_dist <= eps:
             if verbose:
                 print("success!")
+
+            # fix up scaling matrices so that result of scaling is a unit vector
             res = Result(True, it)
             res.gs = gs
             res.psi = psi
@@ -178,10 +212,9 @@ def scale(psi, targets, eps, max_iterations=100, randomize=True, verbose=False):
         L = scipy.linalg.cholesky(rho, lower=True)
         L_inv = scipy.linalg.inv(L)
         g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
-
-        psi = scale_one(g, sys, psi)
-        assert np.isclose(np.linalg.norm(psi), 1)
         gs[sys] = g @ gs[sys]
+
+        it += 1
 
     if verbose:
         print("did not converge!")
