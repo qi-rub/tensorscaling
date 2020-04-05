@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import numpy as np
 import scipy.linalg
 import string, operator
@@ -221,3 +222,10 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     if verbose:
         print("did not converge!")
     return Result(False, it, max_dist, gs, psi)
+
+
+
+
+
+
+
