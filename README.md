@@ -15,10 +15,4 @@ For details, please see [our paper](https://arxiv.org/abs/1804.04739).
 ```
 # Getting started
 
-The easiest way to run the Jupyter notebook is simpy by clicking here:
-
-[![Binder](http://mybinder.org/badge.svg)](http://beta.mybinder.org/v2/gh/catch22/tensorscaling/master?filepath=tensorscaling.ipynb)
-
-This will launch a new Jupyter notebook right in your browser!
-
 ...
