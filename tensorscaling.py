@@ -8,6 +8,7 @@ __all__ = [
     "unit_tensor",
     "random_tensor",
     "random_unitary",
+    "random_orthogonal",
     "random_spectrum",
     "random_targets",
     "marginal",
@@ -41,6 +42,12 @@ def random_tensor(shape):
 def random_unitary(n):
     """Return Haar-random n by n unitary matrix."""
     H = np.random.randn(n, n) + 1j * np.random.randn(n, n)
+    Q, R = scipy.linalg.qr(H)
+    return Q
+
+def random_orthogonal(n):
+    """Return Haar-random n by n unitary matrix."""
+    H = np.random.randn(n, n)
     Q, R = scipy.linalg.qr(H)
     return Q
 
@@ -133,6 +140,21 @@ def parse_targets(targets, shape):
 
 
 class Result:
+    def __init__(self, success, iterations, max_dist, gs, psi, cap):
+        self.success = success
+        self.iterations = iterations
+        self.max_dist = max_dist
+        self.gs = gs
+        self.psi = psi
+
+
+    def __repr__(self):
+        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
+
+    def __bool__(self):
+        return self.success
+
+class Result1:
     def __init__(self, success, iterations, max_dist, gs, psi, cap):
         self.success = success
         self.iterations = iterations
