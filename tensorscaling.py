@@ -140,7 +140,7 @@ def parse_targets(targets, shape):
 
 
 class Result:
-    def __init__(self, success, iterations, max_dist, gs, psi, cap):
+    def __init__(self, success, iterations, max_dist, gs, psi):
         self.success = success
         self.iterations = iterations
         self.max_dist = max_dist
@@ -222,7 +222,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         if verbose:
-            print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
+            print(f"#{it:03d}: max_dist = {np.log(max_dist):.8f} @ sys = {sys}")
 
         # check if we are done
         if max_dist <= eps:
@@ -289,7 +289,7 @@ def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=Fals
                 print("success!")
 
             # fix up scaling matrices so that result of scaling is a unit vector
-            return cap
+            return scipy.log(cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -310,7 +310,6 @@ def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=Fals
         for k in targets:
             #print(gs[k])
             cap*=np.absolute(scipy.linalg.det(gs[k]))**(-1/shape[k])
-        cap=scipy.log(cap)
         #print(cap)
         #print(cap)
 
@@ -322,9 +321,8 @@ def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=Fals
     if verbose:
         print("did not converge!")
     #return Result(False, it, max_dist, gs, psi, cap)
-    return cap
+    return scipy.log(cap)
 
-#lunch break; next actually get the capacity
 
 
 

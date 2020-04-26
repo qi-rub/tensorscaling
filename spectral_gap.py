@@ -1,6 +1,7 @@
 import numpy as np
 from tensorscaling import *
 import scipy.linalg
+import string, operator
 import sys
 #import gflags
 import json
@@ -46,6 +47,94 @@ def main():
   for i in range(config_object["number_of_runs"]):
     psi = random_normal_tensor(targets).reshape(3,3,3)
     scale(psi, targets, epsilon, 50, verbose = True)
+
+def main_cole(n,targets, epsilon, number_of_runs,max_iterations=100):
+  targets = normalize(targets, 1)
+  for i in range(number_of_runs):
+    psi = random_normal_tensor(targets).reshape(n,n,n)
+    return scale(psi, targets, epsilon, max_iterations, verbose = False)
+
+def scaling_distances(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
+    """
+    Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
+    diagonal matrices with the given eigenvalues ("target spectra").
+
+    The parameter targets can be a list or tuple, or a dictionary mapping subsystem
+    indices to spectra. In the former case, if fewer spectra are provided than there are
+    tensor factors, then those spectra will apply to the *last* marginals of the tensor.
+
+    NOTE: There are several differences when compared to the rigorous tensor scaling
+    algorithm in https://arxiv.org/abs/1804.04739. First, and most importantly, the
+    maximal number of iterations is *not* chosen such that the algorithm provides any
+    rigorous guarantees. Second, we use the Frobenius norm instead of the trace norm
+    to quantify the distance to the targe marginals. Third, the randomization is done
+    by *Haar-random unitaries* rather than by random integer matrices. Finally, our
+    algorithm scales by *lower-triangular* matrices to diagonal matrices whose diagonal
+    entries are *non-increasing*.
+
+    TODO: Scaling to singular marginals is not implemented yet.
+    """
+    assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
+
+    dist_list = []
+
+    # convert targets to dictionary of arrays
+    shape = psi.shape
+    targets = parse_targets(targets, shape)
+
+    if verbose:
+        print(f"scaling tensor of shape {shape} and type {psi.dtype}")
+        print("target spectra:")
+        for k, spec in targets.items():
+            print(f"  {k}: {tuple(spec)}")
+
+    # randomize by local unitaries
+    if randomize:
+        gs = {k: random_unitary(shape[k]) for k in targets}
+    else:
+        gs = {k: np.eye(shape[k]) for k in targets}
+
+    # TODO: should truncate tensor and spectrum and apply algorithm
+    if any(np.isclose(spec[-1], 0) for spec in targets.values()):
+        raise NotImplementedError("singular target marginals")
+
+    it = 0
+    psi_initial = psi
+    while True:
+        # compute current tensor and distances
+        psi = scale_many(gs, psi_initial)
+        psi /= np.linalg.norm(psi)
+        dists = marginal_distances(psi, targets)
+        sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
+        dist_list.append(scipy.log(max_dist))
+        if verbose:
+            print(f"#{it:03d}: max_dist = {np.log(max_dist):.8f} @ sys = {sys}")
+
+        # check if we are done
+        if max_dist <= eps:
+            if verbose:
+                print("success!")
+
+            # fix up scaling matrices so that result of scaling is a unit vector
+            return dist_list
+
+        if max_iterations and it == max_iterations:
+            break
+
+        # scale worst marginal using Cholesky decomposition
+        rho = marginal(psi, sys)
+        L = scipy.linalg.cholesky(rho, lower=True)
+        L_inv = scipy.linalg.inv(L)
+        g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
+        gs[sys] = g @ gs[sys]
+
+        it += 1
+
+    if verbose:
+        print("did not converge!")
+    return dist_list
+
+
 
 if __name__ == "__main__":
   main()
