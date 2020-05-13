@@ -31,30 +31,8 @@ def symmetric_qubit_polytope(psi, eps, max_trials=5):
     return lb, ub
 
 
-def dicke_0011():
-    psi = np.zeros(shape=[2, 2, 2, 2])
-    psi[0, 0, 1, 1] = 1
-    psi[0, 1, 0, 1] = 1
-    psi[0, 1, 1, 0] = 1
-    psi[1, 0, 0, 1] = 1
-    psi[1, 0, 1, 0] = 1
-    psi[1, 1, 0, 0] = 1
-    psi = psi / np.linalg.norm(psi)
-    return psi
-
-
-def dicke_0001():
-    psi = np.zeros(shape=[2, 2, 2, 2])
-    psi[0, 0, 0, 1] = 1
-    psi[0, 0, 1, 0] = 1
-    psi[0, 1, 0, 0] = 1
-    psi[1, 0, 0, 0] = 1
-    psi = psi / np.linalg.norm(psi)
-    return psi
-
-
-def test_dicke_0011():
-    psi = dicke_0011()
+def test_dicke_4_stable():
+    psi = dicke_tensor(2, 4)
 
     target = [0.5, 0.5]
     assert scale_symmetric(psi, target, 1e-4)
@@ -69,8 +47,13 @@ def test_dicke_0011():
     assert lb <= 0.5 <= ub
 
 
-def test_dicke_0001():
-    psi = dicke_0001()
+def test_dicke_4_unstable():
+    psi = dicke_tensor(1, 4)
+
+    lb, ub = symmetric_qubit_polytope(psi, eps=1e-3)
+    assert lb <= 0.75 <= ub
+
+    psi = dicke_tensor(3, 4)
 
     lb, ub = symmetric_qubit_polytope(psi, eps=1e-3)
     assert lb <= 0.75 <= ub

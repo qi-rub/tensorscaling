@@ -5,6 +5,7 @@ from typing import Optional
 
 __all__ = [
     "unit_tensor",
+    "dicke_tensor",
     "random_tensor",
     "random_unitary",
     "random_spectrum",
@@ -27,6 +28,20 @@ def unit_tensor(n, d):
     for i in range(n):
         psi[(i,) * d] = 1
     psi /= np.sqrt(n)
+    return psi
+
+
+def dicke_tensor(k, n):
+    """
+    Return n-qubit Dicke state with k ones.
+
+    TODO: Generalize to qudits.
+    """
+    psi = np.zeros(shape=(2,) * n)
+    for idx in np.ndindex(psi.shape):
+        if np.sum(idx) == k:
+            psi[idx] = 1
+    psi = psi / np.linalg.norm(psi)
     return psi
 
 
