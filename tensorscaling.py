@@ -255,7 +255,7 @@ def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=Fals
     """um"""
 
     #if the tensors are uniform, this will scale but keep track of the norm as if things were over SLn. 
-    #Would have to adapt this to make it work for nonunform.
+    # ASSUMES UNIFORM!!! Would have to adapt this to make it work for nonunform.
     #assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
     shape = psi.shape
     targets = parse_targets(targets, shape)
