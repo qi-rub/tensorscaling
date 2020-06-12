@@ -6,6 +6,7 @@ from typing import Optional
 
 __all__ = [
     "unit_tensor",
+    "dicke_tensor",
     "random_tensor",
     "random_unitary",
     "random_spectrum",
@@ -18,6 +19,7 @@ __all__ = [
     "parse_targets",
     "Result",
     "scale",
+    "scale_symmetric",
 ]
 
 
@@ -27,6 +29,20 @@ def unit_tensor(n, d):
     for i in range(n):
         psi[(i,) * d] = 1
     psi /= np.sqrt(n)
+    return psi
+
+
+def dicke_tensor(k, n):
+    """
+    Return n-qubit Dicke state with k ones.
+
+    TODO: Generalize to qudits.
+    """
+    psi = np.zeros(shape=(2,) * n)
+    for idx in np.ndindex(psi.shape):
+        if np.sum(idx) == k:
+            psi[idx] = 1
+    psi = psi / np.linalg.norm(psi)
     return psi
 
 
@@ -204,7 +220,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
             if verbose:
                 print("success!")
 
-            # fix up scaling matrices so that result of scaling is a unit vector
+            # TODO: fix up scaling matrices so that result of scaling is a unit vector
             return Result(True, it, max_dist, gs, psi)
 
         if max_iterations and it == max_iterations:
@@ -225,7 +241,77 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
 
 
 
+def scale_symmetric(
+    psi, target, eps, max_iterations=1000, randomize=True, verbose=False
+):
+    """
+    Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
+    diagonal matrices with the given eigenvalues ("target spectra").
 
+    NOTE: This algorithm follows https://arxiv.org/abs/1910.12375.
 
+    TODO: Scaling to singular marginals is not implemented yet.
+    """
+    assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
+    assert all(
+        np.allclose(np.swapaxes(psi, 0, k), psi) for k in range(len(psi.shape))
+    ), "expect symmetric tensor"
 
+    # convert targets to dictionary of arrays
+    shape = psi.shape
+    _, target = parse_targets([target], shape).popitem()
+    target_dual = -target[::-1]
 
+    # compute step size
+    N_sqr = len(shape) ** 2 + np.linalg.norm(target)
+    eta = 1 / (2 * N_sqr)
+
+    if verbose:
+        print(f"scaling symmetric tensor of shape {shape} and type {psi.dtype}")
+        print(f"target spectrum: {tuple(target)}; dual: {tuple(target_dual)}")
+        print(f"step size: {eta}")
+
+    # randomize by local unitaries
+    if randomize:
+        U = random_unitary(shape[0])
+    else:
+        U = np.eye(shape[0])
+
+    if np.isclose(target[-1], 0):
+        raise NotImplementedError("singular target marginals")
+
+    it = 0
+    psi_initial = psi
+    g = np.eye(shape[0])
+    while True:
+        # compute current tensor and distances
+        gs = {k: g @ U for k in range(len(shape))}
+        psi = scale_many(gs, psi_initial)
+        psi /= np.linalg.norm(psi)
+        dist = np.linalg.norm(marginal(psi, 0) + np.diag(target_dual))
+        spec_dist = np.linalg.norm(np.linalg.eigvalsh(marginal(psi, 0))[::-1] - target)
+        if verbose:
+            print(f"#{it:03d}: dist = {dist:.8f}, spec_dist = {spec_dist:.8f}")
+
+        # check if we are done
+        if spec_dist <= eps:
+            if verbose:
+                print("success!")
+
+            # TODO: fix up scaling matrices so that result of scaling is a unit vector
+            return Result(True, it, dist, g, psi)
+
+        if max_iterations and it == max_iterations:
+            break
+
+        # scaling step
+        rho = marginal(psi, 0)
+        q, r = np.linalg.qr(g, "complete")
+        H = rho + q @ np.diag(target_dual) @ q.conj().transpose()
+        g = q.conj().transpose() @ scipy.linalg.expm(-eta * H) @ g
+        it += 1
+
+    if verbose:
+        print("did not converge!")
+    return Result(False, it, dist, g, psi)
+>>>>>>> 0370411ab728d5dd04cc3f700573740ce7f865f7
