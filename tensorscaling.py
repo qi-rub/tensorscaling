@@ -162,13 +162,14 @@ def parse_targets(targets, shape):
 
 
 class Result:
-    def __init__(self, success, iterations, max_dist, gs, psi, log_cap):
+    def __init__(self, success, iterations, max_dist, gs, Us, psi, log_cap):
         self.success = success
         self.iterations = iterations
         self.max_dist = max_dist
         self.gs = gs
+        self.Us = Us
         self.psi = psi
-        self.log_cap = log_cap
+        self.log_cap = log_cap  # estimate of Borel capacity of Us @ psi (!)
 
     def __repr__(self):
         return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ..., log_cap={self.log_cap})"
@@ -208,7 +209,6 @@ def scale(
     entries are *non-increasing*.
 
     TODO: Scaling to singular marginals is not implemented yet for Sinkhorn.
-    TODO: Document meaning of the capacity in the non-uniform case.
     """
     assert np.isclose(norm(psi), 1), "expect unit vectors"
 
@@ -288,14 +288,13 @@ def scale(
 
             # fix up scaling matrices so that result of scaling is a unit vector (TODO: not needed for Sinkhorn)
             gs[sys] /= norm(scale_many(gs, psi_randomized))
-            total_gs = {k: gs[k] @ Us[k] for k in targets}
 
             # compute capacity
             log_cap = 0
             for k in targets:
                 _, l = ql_decomposition(gs[k])
                 log_cap -= targets[k] @ np.log(np.abs(np.diag(l)))
-            return Result(True, it, max_dist, total_gs, psi, log_cap)
+            return Result(True, it, max_dist, gs, Us, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -307,8 +306,7 @@ def scale(
 
     if verbose:
         print("did not converge!")
-    total_gs = {k: gs[k] @ Us[k] for k in targets}
-    return Result(False, it, max_dist, total_gs, psi, log_cap=None)
+    return Result(False, it, max_dist, gs, Us, psi, log_cap=None)
 
 
 def scale_symmetric(
@@ -369,7 +367,7 @@ def scale_symmetric(
             _, l = ql_decomposition(g)
             log_cap = -len(shape) * target @ np.log(np.abs(np.diag(l)))
 
-            return Result(True, it, dist, g @ U, psi, log_cap)
+            return Result(True, it, dist, g, U, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -384,4 +382,4 @@ def scale_symmetric(
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, dist, g @ U, psi, log_cap=None)
+    return Result(False, it, dist, g, U, psi, log_cap=None)

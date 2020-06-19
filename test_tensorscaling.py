@@ -103,7 +103,7 @@ def test_scale_success(shape, targets, eps):
         assert np.linalg.norm(rho - np.diag(spec)) <= eps
 
     # check that the state can be obtained by applying the scaling matrices
-    psi_expected = scale_many(res.gs, psi)
+    psi_expected = scale_many(res.gs, scale_many(res.Us, psi))
     assert np.allclose(res.psi, psi_expected)
 
 
@@ -144,14 +144,30 @@ def test_scale_without_randomization():
     assert not scale(psi, targets, 1e-4, randomize=False)
 
 
-def test_capacity():
-    psi = random_tensor([3, 3, 3])
-    targets = [[1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3]]
-    res = scale(psi, targets, 1e-4, method="sinkhorn")
+@pytest.mark.parametrize(
+    "shape,targets,is_uniform",
+    [
+        (
+            [3, 3, 3],
+            [[1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3]],
+            True,
+        ),
+        ([3, 3, 3], [[0.5, 0.25, 0.25], [0.5, 0.25, 0.25], [0.5, 0.25, 0.25]], False,),
+    ],
+)
+def test_capacity(shape, targets, is_uniform):
+    psi = random_tensor(shape)
+    res = scale(psi, targets, 1e-4, method="sinkhorn", randomize=False)
     assert res
 
-    # computing the capacity should not depend on the randomization step
-    assert np.isclose(scale(psi, targets, 1e-4, method="sinkhorn").log_cap, res.log_cap)
+    # in the uniform case, computing the capacity should not depend on the randomization step
+    assert is_uniform == np.isclose(
+        scale(psi, targets, 1e-4, method="sinkhorn", randomize=True).log_cap,
+        res.log_cap,
+    )
 
     # computing the capacity should not depend on the method
-    assert np.isclose(scale(psi, targets, 1e-4, method="gradient").log_cap, res.log_cap)
+    assert np.isclose(
+        scale(psi, targets, 1e-4, method="gradient", randomize=False).log_cap,
+        res.log_cap,
+    )
