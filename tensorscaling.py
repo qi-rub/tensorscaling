@@ -8,6 +8,7 @@ __all__ = [
     "dicke_tensor",
     "random_tensor",
     "random_unitary",
+    "random_orthogonal",
     "random_spectrum",
     "random_targets",
     "marginal",
@@ -55,6 +56,13 @@ def random_tensor(shape):
 def random_unitary(n):
     """Return Haar-random n by n unitary matrix."""
     H = np.random.randn(n, n) + 1j * np.random.randn(n, n)
+    Q, R = scipy.linalg.qr(H)
+    return Q
+
+
+def random_orthogonal(n):
+    """Return Haar-random n by n orthogonal matrix."""
+    H = np.random.randn(n, n)
     Q, R = scipy.linalg.qr(H)
     return Q
 
@@ -147,15 +155,16 @@ def parse_targets(targets, shape):
 
 
 class Result:
-    def __init__(self, success, iterations, max_dist, gs, psi):
+    def __init__(self, success, iterations, max_dist, gs, psi, log_cap):
         self.success = success
         self.iterations = iterations
         self.max_dist = max_dist
         self.gs = gs
         self.psi = psi
+        self.log_cap = log_cap
 
     def __repr__(self):
-        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
+        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ..., log_cap={self.log_cap})"
 
     def __bool__(self):
         return self.success
@@ -204,6 +213,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         raise NotImplementedError("singular target marginals")
 
     it = 0
+    log_cap = 0
     psi_initial = psi
     while True:
         # compute current tensor and distances
@@ -220,7 +230,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
                 print("success!")
 
             # TODO: fix up scaling matrices so that result of scaling is a unit vector
-            return Result(True, it, max_dist, gs, psi)
+            return Result(True, it, max_dist, gs, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -232,11 +242,14 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
         gs[sys] = g @ gs[sys]
 
+        # keep track of log capacity
+        log_cap -= targets[sys] @ np.log(np.abs(np.diag(g)))
+
         it += 1
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, max_dist, gs, psi)
+    return Result(False, it, max_dist, gs, psi, log_cap)
 
 
 def scale_symmetric(
@@ -280,6 +293,7 @@ def scale_symmetric(
 
     it = 0
     psi_initial = psi
+    log_cap = None
     g = np.eye(shape[0])
     while True:
         # compute current tensor and distances
@@ -297,7 +311,7 @@ def scale_symmetric(
                 print("success!")
 
             # TODO: fix up scaling matrices so that result of scaling is a unit vector
-            return Result(True, it, dist, g, psi)
+            return Result(True, it, dist, g, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -307,8 +321,11 @@ def scale_symmetric(
         q, r = np.linalg.qr(g, "complete")
         H = rho + q @ np.diag(target_dual) @ q.conj().transpose()
         g = q.conj().transpose() @ scipy.linalg.expm(-eta * H) @ g
+
+        # TODO: keep track of log capacity
+
         it += 1
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, dist, g, psi)
+    return Result(False, it, dist, g, psi, log_cap)
