@@ -194,6 +194,10 @@ def scale(
     indices to spectra. In the former case, if fewer spectra are provided than there are
     tensor factors, then those spectra will apply to the *last* marginals of the tensor.
 
+    The parameter method can be eitehr "sinkhorn" or "gradient". In the former case,
+    we use the tensor scaling algorithm from https://arxiv.org/abs/1804.04739. The latter
+    algorithm is the geodesic gradient method from https://arxiv.org/abs/1910.12375.
+
     NOTE: There are several differences when compared to the rigorous tensor scaling
     algorithm in https://arxiv.org/abs/1804.04739. First, and most importantly, the
     maximal number of iterations is *not* chosen such that the algorithm provides any
@@ -324,7 +328,6 @@ def scale_symmetric(
     # convert targets to dictionary of arrays
     shape = psi.shape
     _, target = parse_targets([target], shape).popitem()
-    target_dual = -target[::-1]
 
     # compute step size
     N_sqr = len(shape) ** 2 + norm(target)
@@ -332,7 +335,7 @@ def scale_symmetric(
 
     if verbose:
         print(f"scaling symmetric tensor of shape {shape} and type {psi.dtype}")
-        print(f"target spectrum: {tuple(target)}; dual: {tuple(target_dual)}")
+        print(f"target spectrum: {tuple(target)}")
         print(f"step size: {eta}")
 
     # randomize by local unitaries
@@ -343,14 +346,13 @@ def scale_symmetric(
 
     it = 0
     psi_initial = psi
-    log_cap = None
     g = np.eye(shape[0])
     while True:
         # compute current tensor and distances
         gs = {k: g @ U for k in range(len(shape))}
         psi = scale_many(gs, psi_initial)
         psi /= norm(psi)
-        dist = norm(marginal(psi, 0) + np.diag(target_dual))
+        dist = norm(marginal(psi, 0) - np.diag(target))
         spec_dist = norm(np.linalg.eigvalsh(marginal(psi, 0))[::-1] - target)
         if verbose:
             print(f"#{it:03d}: dist = {dist:.8f}, spec_dist = {spec_dist:.8f}")
@@ -360,24 +362,26 @@ def scale_symmetric(
             if verbose:
                 print("success!")
 
-            # TODO: fix up scaling matrices so that result of scaling is a unit vector
-            return Result(True, it, dist, g, psi, log_cap)
+            # fix up scaling matrices so that result of scaling is a unit vector
+            g /= norm(scale_many(gs, psi_initial)) ** (1 / len(shape))
+
+            # compute capacity
+            _, l = ql_decomposition(g)
+            log_cap = -len(shape) * target @ np.log(np.abs(np.diag(l)))
+
+            return Result(True, it, dist, g @ U, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
 
         # scaling step
         rho = marginal(psi, 0)
-        q, r = np.linalg.qr(g, "complete")
-        # H = rho + q @ np.diag(target_dual) @ q.conj().transpose()
-        # g = q.conj().transpose() @ scipy.linalg.expm(-eta * H) @ g
-        H = q.conj().transpose() @ rho @ q + np.diag(target_dual)
-        g = scipy.linalg.expm(-eta * H) @ r
-
-        # TODO: keep track of log capacity
+        q, l = ql_decomposition(g)
+        H = q.conj().transpose() @ rho @ q - np.diag(target)
+        g = scipy.linalg.expm(-eta * H) @ l
 
         it += 1
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, dist, g, psi, log_cap)
+    return Result(False, it, dist, g @ U, psi, log_cap=None)
