@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import numpy as np
 import scipy.linalg
 import string, operator
