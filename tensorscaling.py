@@ -171,22 +171,6 @@ class Result:
         return self.success
 
 
-class Result1:
-    def __init__(self, success, iterations, max_dist, gs, psi, cap):
-        self.success = success
-        self.iterations = iterations
-        self.max_dist = max_dist
-        self.gs = gs
-        self.psi = psi
-        self.cap = cap
-
-    def __repr__(self):
-        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
-
-    def __bool__(self):
-        return self.success
-
-
 def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     """
     Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
