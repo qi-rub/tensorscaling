@@ -133,8 +133,10 @@ def test_scale_without_randomization():
 
     # for this spectrum, it doesn't matter whether we randomize or not
     targets = ([0.5, 0.5], [0.5, 0.5], [0.5, 0.5])
-    assert scale(psi, targets, 1e-4)
-    assert scale(psi, targets, 1e-4, randomize=False)
+    res = scale(psi, targets, 1e-4)
+    assert res and res.log_cap == 0
+    res = scale(psi, targets, 1e-4, randomize=False)
+    assert res and res.log_cap == 0
 
     # but for this one it matters
     targets = ([0.6, 0.4], [0.5, 0.5], [0.5, 0.5])
