@@ -222,7 +222,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         if verbose:
-            print(f"#{it:03d}: max_dist = {np.log(max_dist):.8f} @ sys = {sys}")
+            print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
 
         # check if we are done
         if max_dist <= eps:
@@ -256,18 +256,7 @@ def scale_symmetric(
     Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
     diagonal matrices with the given eigenvalues ("target spectra").
 
-
     NOTE: This algorithm follows https://arxiv.org/abs/1910.12375.
-
-
-
-
-
-
-
-
-
-
 
     TODO: Scaling to singular marginals is not implemented yet.
     """
