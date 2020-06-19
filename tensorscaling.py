@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import norm
 import scipy.linalg
 import string, operator
 from typing import Optional
@@ -42,14 +43,14 @@ def dicke_tensor(k, n):
     for idx in np.ndindex(psi.shape):
         if np.sum(idx) == k:
             psi[idx] = 1
-    psi = psi / np.linalg.norm(psi)
+    psi = psi / norm(psi)
     return psi
 
 
 def random_tensor(shape):
     """Return random tensor chosen from the unitarily-invariant probability measure on the unit sphere."""
     psi = np.random.randn(*shape) + 1j * np.random.randn(*shape)
-    psi = psi / np.linalg.norm(psi)
+    psi = psi / norm(psi)
     return psi
 
 
@@ -121,13 +122,10 @@ def scale_many(gs, psi):
 
 def marginal_distances(psi, targets):
     """
-    Return dictionary of distances to target marginals in Frobenius norm. Each target
-    marginal is a diagonal matrix containing the target spectrum.
+    Return dictionary of distances to target marginals in Frobenius norm.
+    We recall that each target marginal is the diagonal matrix with entries the target spectrum.
     """
-    return {
-        k: np.linalg.norm(marginal(psi, k) - np.diag(spec))
-        for k, spec in targets.items()
-    }
+    return {k: norm(marginal(psi, k) - np.diag(spec)) for k, spec in targets.items()}
 
 
 def is_spectrum(spec):
@@ -190,7 +188,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
 
     TODO: Scaling to singular marginals is not implemented yet.
     """
-    assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
+    assert np.isclose(norm(psi), 1), "expect unit vectors"
 
     # convert targets to dictionary of arrays
     shape = psi.shape
@@ -212,13 +210,15 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     if any(np.isclose(spec[-1], 0) for spec in targets.values()):
         raise NotImplementedError("singular target marginals")
 
+
+    # iterate
+    psi_initial = psi
     it = 0
     log_cap = 0
-    psi_initial = psi
     while True:
         # compute current tensor and distances
         psi = scale_many(gs, psi_initial)
-        psi /= np.linalg.norm(psi)
+        psi /= norm(psi)
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         if verbose:
@@ -263,7 +263,7 @@ def scale_symmetric(
 
     TODO: Scaling to singular marginals is not implemented yet.
     """
-    assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
+    assert np.isclose(norm(psi), 1), "expect unit vectors"
     assert all(
         np.allclose(np.swapaxes(psi, 0, k), psi) for k in range(len(psi.shape))
     ), "expect symmetric tensor"
@@ -274,7 +274,7 @@ def scale_symmetric(
     target_dual = -target[::-1]
 
     # compute step size
-    N_sqr = len(shape) ** 2 + np.linalg.norm(target)
+    N_sqr = len(shape) ** 2 + norm(target)
     eta = 1 / (2 * N_sqr)
 
     if verbose:
@@ -299,9 +299,9 @@ def scale_symmetric(
         # compute current tensor and distances
         gs = {k: g @ U for k in range(len(shape))}
         psi = scale_many(gs, psi_initial)
-        psi /= np.linalg.norm(psi)
-        dist = np.linalg.norm(marginal(psi, 0) + np.diag(target_dual))
-        spec_dist = np.linalg.norm(np.linalg.eigvalsh(marginal(psi, 0))[::-1] - target)
+        psi /= norm(psi)
+        dist = norm(marginal(psi, 0) + np.diag(target_dual))
+        spec_dist = norm(np.linalg.eigvalsh(marginal(psi, 0))[::-1] - target)
         if verbose:
             print(f"#{it:03d}: dist = {dist:.8f}, spec_dist = {spec_dist:.8f}")
 
