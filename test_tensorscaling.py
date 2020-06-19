@@ -134,11 +134,24 @@ def test_scale_without_randomization():
     # for this spectrum, it doesn't matter whether we randomize or not
     targets = ([0.5, 0.5], [0.5, 0.5], [0.5, 0.5])
     res = scale(psi, targets, 1e-4)
-    assert res and res.log_cap == 0
+    assert res and np.isclose(res.log_cap, 0)
     res = scale(psi, targets, 1e-4, randomize=False)
-    assert res and res.log_cap == 0
+    assert res and np.isclose(res.log_cap, 0)
 
     # but for this one it matters
     targets = ([0.6, 0.4], [0.5, 0.5], [0.5, 0.5])
     assert scale(psi, targets, 1e-4)
     assert not scale(psi, targets, 1e-4, randomize=False)
+
+
+def test_capacity():
+    psi = random_tensor([3, 3, 3])
+    targets = [[1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3], [1 / 3, 1 / 3, 1 / 3]]
+    res = scale(psi, targets, 1e-4, method="sinkhorn")
+    assert res
+
+    # computing the capacity should not depend on the randomization step
+    assert np.isclose(scale(psi, targets, 1e-4, method="sinkhorn").log_cap, res.log_cap)
+
+    # computing the capacity should not depend on the method
+    assert np.isclose(scale(psi, targets, 1e-4, method="gradient").log_cap, res.log_cap)

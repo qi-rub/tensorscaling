@@ -177,7 +177,15 @@ class Result:
         return self.success
 
 
-def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
+def scale(
+    psi,
+    targets,
+    eps,
+    max_iterations=2000,
+    randomize=True,
+    verbose=False,
+    method="sinkhorn",
+):
     """
     Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
     diagonal matrices with the given eigenvalues ("target spectra").
@@ -195,13 +203,15 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     algorithm scales by *lower-triangular* matrices to diagonal matrices whose diagonal
     entries are *non-increasing*.
 
-    TODO: Scaling to singular marginals is not implemented yet.
+    TODO: Scaling to singular marginals is not implemented yet for Sinkhorn.
+    TODO: Document meaning of the capacity in the non-uniform case.
     """
     assert np.isclose(norm(psi), 1), "expect unit vectors"
 
     # convert targets to dictionary of arrays
     shape = psi.shape
     targets = parse_targets(targets, shape)
+    targets_dual = {k: -target[::-1] for k, target in targets.items()}
 
     if verbose:
         print(f"scaling tensor of shape {shape} and type {psi.dtype}")
@@ -211,13 +221,14 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
 
     # randomize by local unitaries
     if randomize:
-        gs = {k: random_unitary(shape[k]) for k in targets}
+        Us = {k: random_unitary(shape[k]) for k in targets}
     else:
-        gs = {k: np.eye(shape[k]) for k in targets}
+        Us = {k: np.eye(shape[k]) for k in targets}
 
     # TODO: should truncate tensor and spectrum and apply algorithm
-    if any(np.isclose(spec[-1], 0) for spec in targets.values()):
-        raise NotImplementedError("singular target marginals")
+    if method == "sinkhorn":
+        if any(np.isclose(spec[-1], 0) for spec in targets.values()):
+            raise NotImplementedError("singular target marginals")
 
     # scaling methods
     def sinkhorn_step():
@@ -229,17 +240,37 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         gs[sys] = g @ gs[sys]
 
         # keep track of log capacity
-        nonlocal log_cap
-        log_cap -= targets[sys] @ np.log(np.abs(np.diag(g)))
+        # nonlocal log_cap
+        # log_cap -= targets[sys] @ np.log(np.abs(np.diag(g)))
+
+    def gradient_step():
+        # TODO: check step size
+        target_norm = norm([norm(target) ** 2 for target in targets])
+        N_sqr = len(shape) + target_norm
+        eta = 1 / (2 * N_sqr)
+
+        # gradient step in each direction
+        for k in targets:
+            rho = marginal(psi, k)
+            q, l = ql_decomposition(gs[k])
+            H = q.conj().transpose() @ rho @ q - np.diag(targets[k])
+            gs[k] = scipy.linalg.expm(-eta * H) @ l
+
+    if method == "sinkhorn":
+        step = sinkhorn_step
+    elif method == "gradient":
+        step = gradient_step
+    else:
+        raise Exception(f"Unknown method: {method}")
 
     # iterate
-    psi_initial = psi
+    psi_randomized = scale_many(Us, psi)
+    gs = {k: np.eye(shape[k]) for k in targets}
     it = 0
-    log_cap = 0
 
     while True:
         # compute current tensor and distances
-        psi = scale_many(gs, psi_initial)
+        psi = scale_many(gs, psi_randomized)
         psi /= norm(psi)
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
@@ -251,20 +282,29 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
             if verbose:
                 print("success!")
 
-            # TODO: fix up scaling matrices so that result of scaling is a unit vector
-            return Result(True, it, max_dist, gs, psi, log_cap)
+            # fix up scaling matrices so that result of scaling is a unit vector (TODO: not needed for Sinkhorn)
+            gs[sys] /= norm(scale_many(gs, psi_randomized))
+            total_gs = {k: gs[k] @ Us[k] for k in targets}
+
+            # compute capacity
+            log_cap = 0
+            for k in targets:
+                _, l = ql_decomposition(gs[k])
+                log_cap -= targets[k] @ np.log(np.abs(np.diag(l)))
+            return Result(True, it, max_dist, total_gs, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
 
         # iteration step
-        sinkhorn_step()
+        step()
 
         it += 1
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, max_dist, gs, psi, log_cap)
+    total_gs = {k: gs[k] @ Us[k] for k in targets}
+    return Result(False, it, max_dist, total_gs, psi, log_cap=None)
 
 
 def scale_symmetric(
@@ -272,11 +312,9 @@ def scale_symmetric(
 ):
     """
     Scale tensor psi to a tensor whose marginals are eps-close in Frobenius norm to
-    diagonal matrices with the given eigenvalues ("target spectra").
+    diagonal matrices with the given eigenvalues ("target spectra") *in reverse*.
 
     NOTE: This algorithm follows https://arxiv.org/abs/1910.12375.
-
-    TODO: Scaling to singular marginals is not implemented yet.
     """
     assert np.isclose(norm(psi), 1), "expect unit vectors"
     assert all(
@@ -302,9 +340,6 @@ def scale_symmetric(
         U = random_unitary(shape[0])
     else:
         U = np.eye(shape[0])
-
-    if np.isclose(target[-1], 0):
-        raise NotImplementedError("singular target marginals")
 
     it = 0
     psi_initial = psi
@@ -334,8 +369,10 @@ def scale_symmetric(
         # scaling step
         rho = marginal(psi, 0)
         q, r = np.linalg.qr(g, "complete")
-        H = rho + q @ np.diag(target_dual) @ q.conj().transpose()
-        g = q.conj().transpose() @ scipy.linalg.expm(-eta * H) @ g
+        # H = rho + q @ np.diag(target_dual) @ q.conj().transpose()
+        # g = q.conj().transpose() @ scipy.linalg.expm(-eta * H) @ g
+        H = q.conj().transpose() @ rho @ q + np.diag(target_dual)
+        g = scipy.linalg.expm(-eta * H) @ r
 
         # TODO: keep track of log capacity
 
