@@ -19,7 +19,6 @@ __all__ = [
     "is_spectrum",
     "parse_targets",
     "Result",
-    "capacity",
     "scale",
     "scale_symmetric",
 ]
@@ -157,15 +156,16 @@ def parse_targets(targets, shape):
 
 
 class Result:
-    def __init__(self, success, iterations, max_dist, gs, psi):
+    def __init__(self, success, iterations, max_dist, gs, psi, log_cap):
         self.success = success
         self.iterations = iterations
         self.max_dist = max_dist
         self.gs = gs
         self.psi = psi
+        self.log_cap = log_cap
 
     def __repr__(self):
-        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
+        return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ..., log_cap={self.log_cap})"
 
     def __bool__(self):
         return self.success
@@ -214,6 +214,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         raise NotImplementedError("singular target marginals")
 
     it = 0
+    log_cap = 0
     psi_initial = psi
     while True:
         # compute current tensor and distances
@@ -230,7 +231,7 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
                 print("success!")
 
             # TODO: fix up scaling matrices so that result of scaling is a unit vector
-            return Result(True, it, max_dist, gs, psi)
+            return Result(True, it, max_dist, gs, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -242,11 +243,14 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
         gs[sys] = g @ gs[sys]
 
+        # keep track of log capacity
+        log_cap -= targets[sys] @ np.log(np.abs(np.diag(g)))
+
         it += 1
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, max_dist, gs, psi)
+    return Result(False, it, max_dist, gs, psi, log_cap)
 
 
 def scale_symmetric(
@@ -290,6 +294,7 @@ def scale_symmetric(
 
     it = 0
     psi_initial = psi
+    log_cap = None
     g = np.eye(shape[0])
     while True:
         # compute current tensor and distances
@@ -307,7 +312,7 @@ def scale_symmetric(
                 print("success!")
 
             # TODO: fix up scaling matrices so that result of scaling is a unit vector
-            return Result(True, it, dist, g, psi)
+            return Result(True, it, dist, g, psi, log_cap)
 
         if max_iterations and it == max_iterations:
             break
@@ -317,80 +322,11 @@ def scale_symmetric(
         q, r = np.linalg.qr(g, "complete")
         H = rho + q @ np.diag(target_dual) @ q.conj().transpose()
         g = q.conj().transpose() @ scipy.linalg.expm(-eta * H) @ g
+
+        # TODO: keep track of log capacity
+
         it += 1
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, dist, g, psi)
-
-
-def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
-    """um"""
-
-    # if the tensors are uniform, this will scale but keep track of the norm as if things were over SLn.
-    # ASSUMES UNIFORM!!! Would have to adapt this to make it work for nonunform.
-    # assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
-    shape = psi.shape
-    targets = parse_targets(targets, shape)
-
-    # randomize by local unitaries
-    if randomize:
-        gs = {k: random_unitary(shape[k]) for k in targets}
-    else:
-        gs = {k: np.eye(shape[k]) for k in targets}
-
-    # TODO: should truncate tensor and spectrum and apply algorithm
-    if any(np.isclose(spec[-1], 0) for spec in targets.values()):
-        raise NotImplementedError("singular target marginals")
-
-    it = 0
-    psi_initial = psi
-    cap = 1
-
-    while True:
-        # compute current tensor and distances
-        psi = scale_many(gs, psi_initial)
-        psi /= np.linalg.norm(psi)
-        dists = marginal_distances(psi, targets)
-        sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
-        if verbose:
-            print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
-
-        # check if we are done
-        if max_dist <= eps:
-            if verbose:
-                print("success!")
-
-            # fix up scaling matrices so that result of scaling is a unit vector
-            return scipy.log(cap)
-
-        if max_iterations and it == max_iterations:
-            break
-
-        # scale by all the other current scalings.
-        # form a scaling that's identity only on the current one
-        gs[sys] = np.eye(shape[sys])
-
-        rho = marginal(scale_many(gs, psi_initial), sys)
-        # print(rho)
-        L = scipy.linalg.cholesky(rho, lower=True)
-        L_inv = scipy.linalg.inv(L)
-        g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
-        gs[sys] = g
-
-        cap = 1
-        # print(gs)
-        for k in targets:
-            # print(gs[k])
-            cap *= np.absolute(scipy.linalg.det(gs[k])) ** (-1 / shape[k])
-        # print(cap)
-        # print(cap)
-
-        it += 1
-
-    # print(scipy.linalg.det(gs[0]))
-
-    if verbose:
-        print("did not converge!")
-    # return Result(False, it, max_dist, gs, psi, cap)
-    return scipy.log(cap)
+    return Result(False, it, dist, g, psi, log_cap)
