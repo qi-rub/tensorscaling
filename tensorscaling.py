@@ -210,11 +210,24 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     if any(np.isclose(spec[-1], 0) for spec in targets.values()):
         raise NotImplementedError("singular target marginals")
 
+    # scaling methods
+    def sinkhorn_step():
+        # scale worst marginal using Cholesky decomposition
+        rho = marginal(psi, sys)
+        L = scipy.linalg.cholesky(rho, lower=True)
+        L_inv = scipy.linalg.inv(L)
+        g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
+        gs[sys] = g @ gs[sys]
+
+        # keep track of log capacity
+        nonlocal log_cap
+        log_cap -= targets[sys] @ np.log(np.abs(np.diag(g)))
 
     # iterate
     psi_initial = psi
     it = 0
     log_cap = 0
+
     while True:
         # compute current tensor and distances
         psi = scale_many(gs, psi_initial)
@@ -235,15 +248,8 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
         if max_iterations and it == max_iterations:
             break
 
-        # scale worst marginal using Cholesky decomposition
-        rho = marginal(psi, sys)
-        L = scipy.linalg.cholesky(rho, lower=True)
-        L_inv = scipy.linalg.inv(L)
-        g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
-        gs[sys] = g @ gs[sys]
-
-        # keep track of log capacity
-        log_cap -= targets[sys] @ np.log(np.abs(np.diag(g)))
+        # iteration step
+        sinkhorn_step()
 
         it += 1
 
