@@ -89,6 +89,15 @@ def random_targets(shape):
     return [random_spectrum(n) for n in shape]
 
 
+def ql_decomposition(g):
+    """Return QL decomposition of given invertible matrix."""
+    n = g.shape[0]
+    assert g.shape == (n, n)
+    x = np.eye(n)[::-1]
+    q, r = np.linalg.qr(x @ g @ x, "complete")
+    return x @ q @ x, x @ r @ x
+
+
 def marginal(psi, k):
     """Return k-th quantum marginal (reduced density matrix)."""
     shape = psi.shape
