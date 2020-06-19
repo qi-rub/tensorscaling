@@ -61,8 +61,9 @@ def random_unitary(n):
     Q, R = scipy.linalg.qr(H)
     return Q
 
+
 def random_orthogonal(n):
-    """Return Haar-random n by n unitary matrix."""
+    """Return Haar-random n by n orthogonal matrix."""
     H = np.random.randn(n, n)
     Q, R = scipy.linalg.qr(H)
     return Q
@@ -163,12 +164,12 @@ class Result:
         self.gs = gs
         self.psi = psi
 
-
     def __repr__(self):
         return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
 
     def __bool__(self):
         return self.success
+
 
 class Result1:
     def __init__(self, success, iterations, max_dist, gs, psi, cap):
@@ -178,7 +179,6 @@ class Result1:
         self.gs = gs
         self.psi = psi
         self.cap = cap
-
 
     def __repr__(self):
         return f"Result(success={self.success}, iterations={self.iterations}, max_dist={self.max_dist}, ...)"
@@ -263,7 +263,6 @@ def scale(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     if verbose:
         print("did not converge!")
     return Result(False, it, max_dist, gs, psi)
-
 
 
 def scale_symmetric(
@@ -355,9 +354,9 @@ def scale_symmetric(
 def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=False):
     """um"""
 
-    #if the tensors are uniform, this will scale but keep track of the norm as if things were over SLn. 
+    # if the tensors are uniform, this will scale but keep track of the norm as if things were over SLn.
     # ASSUMES UNIFORM!!! Would have to adapt this to make it work for nonunform.
-    #assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
+    # assert np.isclose(np.linalg.norm(psi), 1), "expect unit vectors"
     shape = psi.shape
     targets = parse_targets(targets, shape)
 
@@ -373,7 +372,7 @@ def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=Fals
 
     it = 0
     psi_initial = psi
-    cap=1
+    cap = 1
 
     while True:
         # compute current tensor and distances
@@ -395,33 +394,30 @@ def capacity(psi, targets, eps, max_iterations=200, randomize=True, verbose=Fals
         if max_iterations and it == max_iterations:
             break
 
-        #scale by all the other current scalings.
-        #form a scaling that's identity only on the current one
+        # scale by all the other current scalings.
+        # form a scaling that's identity only on the current one
         gs[sys] = np.eye(shape[sys])
 
         rho = marginal(scale_many(gs, psi_initial), sys)
-        #print(rho)
+        # print(rho)
         L = scipy.linalg.cholesky(rho, lower=True)
         L_inv = scipy.linalg.inv(L)
         g = np.diag(targets[sys] ** (1 / 2)) @ L_inv
         gs[sys] = g
-        
-        cap = 1
-        #print(gs)
-        for k in targets:
-            #print(gs[k])
-            cap*=np.absolute(scipy.linalg.det(gs[k]))**(-1/shape[k])
-        #print(cap)
-        #print(cap)
 
+        cap = 1
+        # print(gs)
+        for k in targets:
+            # print(gs[k])
+            cap *= np.absolute(scipy.linalg.det(gs[k])) ** (-1 / shape[k])
+        # print(cap)
+        # print(cap)
 
         it += 1
 
-    #print(scipy.linalg.det(gs[0]))
+    # print(scipy.linalg.det(gs[0]))
 
     if verbose:
         print("did not converge!")
-    #return Result(False, it, max_dist, gs, psi, cap)
+    # return Result(False, it, max_dist, gs, psi, cap)
     return scipy.log(cap)
-
-    
