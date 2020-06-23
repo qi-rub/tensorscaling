@@ -136,6 +136,20 @@ def marginal_distances(psi, targets):
     """
     return {k: norm(marginal(psi, k) - np.diag(spec)) for k, spec in targets.items()}
 
+def marginal_spectral_radius(psi, targets):
+    """
+    Return dictionary of distances to target marginals in Frobenius norm.
+    We recall that each target marginal is the diagonal matrix with entries the target spectrum.
+    """
+    return {k: max(np.linalg.eigvalsh(marginal(psi, k))) for k, spec in targets.items()}
+
+def marginal_distances(psi, targets):
+    """
+    Return dictionary of distances to target marginals in Frobenius norm.
+    We recall that each target marginal is the diagonal matrix with entries the target spectrum.
+    """
+    return {k: norm(marginal(psi, k) - np.diag(spec)) for k, spec in targets.items()}
+
 
 def is_spectrum(spec):
     return np.isclose(np.sum(spec), 1) and all(spec[:-1] >= spec[1:])
@@ -272,12 +286,17 @@ def scale(
     gs = {k: np.eye(shape[k]) for k in targets}
     it = 0
 
+    spectral_norms = []
+
     while True:
         # compute current tensor and distances
         psi = scale_many(gs, psi_randomized)
         psi /= norm(psi)
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
+
+        spectral_norms.append(marginal_spectral_radius(psi, targets)[0])
+
         if verbose:
             print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
 
@@ -294,7 +313,7 @@ def scale(
             for k in targets:
                 _, l = ql_decomposition(gs[k])
                 log_cap -= targets[k] @ np.log(np.abs(np.diag(l)))
-            return Result(True, it, max_dist, gs, Us, psi, log_cap)
+            return Result(True, it, max_dist, gs, Us, psi, log_cap), spectral_norms
 
         if max_iterations and it == max_iterations:
             break
@@ -306,7 +325,7 @@ def scale(
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, max_dist, gs, Us, psi, log_cap=None)
+    return Result(False, it, max_dist, gs, Us, psi, log_cap=None), spectral_norms
 
 
 def scale_symmetric(
