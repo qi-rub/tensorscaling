@@ -297,8 +297,8 @@ def scale(
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         #add the spectral norm
-        spectral_norms.append(marginal_spectral_radius(psi, targets)[0])
-        frobenius_norms.append(marginal_distances(psi,targets)[0])
+        spectral_norms.append(marginal_spectral_radius(psi, targets))
+        frobenius_norms.append(marginal_distances(psi,targets))
 
         if verbose:
             print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
