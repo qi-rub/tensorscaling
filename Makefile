@@ -2,3 +2,6 @@
 
 test:
 	pytest
+
+pretty:
+	black *.py
