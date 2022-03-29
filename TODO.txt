@@ -1,0 +1,1 @@
+- oracles in `test_polytopes.py` should allow for some numerical tolerance
