@@ -2569,8 +2569,8 @@ def points_444():
         (points_333, None),
         (points_333, unit_tensor(3, 3)),
         (points_333_T_10, tensor_333_T_10),
-        (points_444, None),
-        (points_444, unit_tensor(4, 4)),
+        pytest.param(points_444, None, marks=pytest.mark.slow),
+        pytest.param(points_444, unit_tensor(4, 4), marks=pytest.mark.slow),
     ],
 )
 def test_polytope_inner(points, psi, eps=1e-2):
@@ -2583,10 +2583,8 @@ def test_polytope_inner(points, psi, eps=1e-2):
 
     # try to scale to "positive" examples (should always succeed since we set max_iterations to None)
     for targets in positive:
-        res = scale(psi, targets, eps, method="gradient", max_iterations=None)
-        assert res
+        assert scale(psi, targets, eps, method="gradient", max_iterations=None)
 
     # try to scale to "negative" examples (should never succeed)
     for targets in negative:
-        res = scale(psi, targets, eps, method="gradient")
-        assert not res
+        assert not scale(psi, targets, eps, method="gradient")
