@@ -353,8 +353,8 @@ def scale_symmetric(
     g = np.eye(shape[0])
     while True:
         # compute current tensor and distances
-        gs = {k: g @ U for k in range(len(shape))}
-        psi = scale_many(gs, psi_initial)
+        gs_after_Us = {k: g @ U for k in range(len(shape))}
+        psi = scale_many(gs_after_Us, psi_initial)
         psi /= norm(psi)
         dist = norm(marginal(psi, 0) - np.diag(target))
         spec_dist = norm(np.linalg.eigvalsh(marginal(psi, 0))[::-1] - target)
@@ -367,7 +367,7 @@ def scale_symmetric(
                 print("success!")
 
             # fix up scaling matrices so that result of scaling is a unit vector
-            g /= norm(scale_many(gs, psi_initial)) ** (1 / len(shape))
+            g /= norm(scale_many(gs_after_Us, psi_initial)) ** (1 / len(shape))
 
             # compute capacity
             _, l = ql_decomposition(g)
