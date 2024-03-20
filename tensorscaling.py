@@ -235,7 +235,7 @@ def scale(
     else:
         Us = {k: np.eye(shape[k]) for k in targets}
 
-    # TODO: should truncate tensor and spectrum and apply algorithm
+    # TODO: should apply to a random projection
     if method == "sinkhorn":
         if any(np.isclose(spec[-1], 0) for spec in targets.values()):
             raise NotImplementedError("singular target marginals")
@@ -274,13 +274,13 @@ def scale(
         raise Exception(f"Unknown method: {method}")
 
     # iterate
-    psi_randomized = scale_many(Us, psi)
-    gs = {k: np.eye(shape[k]) for k in targets}
     it = 0
-
+    psi_initial = psi
+    gs = {k: np.eye(shape[k]) for k in targets}
     while True:
         # compute current tensor and distances
-        psi = scale_many(gs, psi_randomized)
+        gs_after_Us = compose(gs, Us)
+        psi = scale_many(gs_after_Us, psi_initial)
         psi /= norm(psi)
         dists = marginal_distances(psi, targets)
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
@@ -293,7 +293,10 @@ def scale(
                 print("success!")
 
             # fix up scaling matrices so that result of scaling is a unit vector (TODO: not needed for Sinkhorn)
-            gs[sys] /= norm(scale_many(gs, psi_randomized))
+            for k in targets:
+                gs[k] /= norm(scale_many(gs_after_Us, psi_initial)) ** (
+                    1 / len(targets)
+                )
 
             # compute capacity
             log_cap = 0

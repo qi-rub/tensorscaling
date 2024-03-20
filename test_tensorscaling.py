@@ -86,7 +86,12 @@ def test_scale_one(shape):
                 (1 / 3, 0.2, 0.18333333333333335, 0.15, 0.13333333333333333),
             ],
         ),
-        ([3, 4, 5], [(1 / 3, 0.2, 0.18333333333333335, 0.15, 0.13333333333333333)]),
+        (
+            [3, 4, 5],
+            [
+                (1 / 3, 0.2, 0.18333333333333335, 0.15, 0.13333333333333333),
+            ],
+        ),
     ],
 )
 @pytest.mark.parametrize("eps", [1e-5])
@@ -103,7 +108,7 @@ def test_scale_success(shape, targets, eps):
         assert np.linalg.norm(rho - np.diag(spec)) <= eps
 
     # check that the state can be obtained by applying the scaling matrices
-    psi_expected = scale_many(res.gs, scale_many(res.Us, psi))
+    psi_expected = scale_many(compose(res.gs, res.Us), psi)
     assert np.allclose(res.psi, psi_expected)
 
 
