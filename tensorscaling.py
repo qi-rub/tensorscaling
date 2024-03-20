@@ -15,6 +15,7 @@ __all__ = [
     "marginal",
     "scale_one",
     "scale_many",
+    "compose",
     "marginal_distances",
     "is_spectrum",
     "parse_targets",
@@ -127,6 +128,11 @@ def scale_many(gs, psi):
     for k, g in gs.items():
         psi = scale_one(g, k, psi)
     return psi
+
+
+def compose(gs, hs):
+    assert gs.keys() == hs.keys()
+    return {k: gs[k] @ hs[k] for k in gs}
 
 
 def marginal_distances(psi, targets):
