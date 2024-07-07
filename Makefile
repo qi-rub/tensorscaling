@@ -4,4 +4,4 @@ test:
 	pytest
 
 pretty:
-	black *.py
+	ruff format

@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.linalg import norm
 import scipy.linalg
-import string, operator
-from typing import Optional
+import string
+import operator
 
 __all__ = [
     "unit_tensor",
@@ -221,7 +221,7 @@ def scale(
     # convert targets to dictionary of arrays
     shape = psi.shape
     targets = parse_targets(targets, shape)
-    targets_dual = {k: -target[::-1] for k, target in targets.items()}
+    # targets_dual = {k: -target[::-1] for k, target in targets.items()}
 
     if verbose:
         print(f"scaling tensor of shape {shape} and type {psi.dtype}")

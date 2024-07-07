@@ -1,8 +1,6 @@
-from tensorscaling import *
+from tensorscaling import unit_tensor, random_tensor, random_targets, marginal, scale
 import numpy as np
-import scipy.linalg
 import pytest
-from functools import wraps
 
 
 def oracle(shape):

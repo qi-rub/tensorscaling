@@ -1,5 +1,4 @@
-from tensorscaling import *
-import numpy as np
+from tensorscaling import unit_tensor, dicke_tensor, scale_symmetric
 
 
 def test_unit_tensor():

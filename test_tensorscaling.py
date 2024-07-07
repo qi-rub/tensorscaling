@@ -1,4 +1,17 @@
-from tensorscaling import *
+from tensorscaling import (
+    compose,
+    is_spectrum,
+    marginal,
+    parse_targets,
+    random_spectrum,
+    random_targets,
+    random_tensor,
+    random_unitary,
+    scale,
+    scale_many,
+    scale_one,
+    unit_tensor,
+)
 import numpy as np
 import scipy.linalg
 import pytest
