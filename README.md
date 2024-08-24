@@ -1,4 +1,4 @@
-# tensorscaling ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-brightgreen.svg) [![arXiv](http://img.shields.io/badge/arXiv-1804.04739-blue.svg?style=flat)](http://arxiv.org/abs/1804.04739)
+# tensorscaling ![Python 3.12+](https://img.shields.io/badge/python-3.12-brightgreen.svg) [![arXiv](http://img.shields.io/badge/arXiv-1804.04739-blue.svg?style=flat)](http://arxiv.org/abs/1804.04739)
 
 This is a Python module and Jupyter notebook for **tensor scaling**, computing [entanglement polytopes](https://www.entanglement-polytopes.org), and solving the one-body [quantum marginal problem](https://arxiv.org/abs/1410.6820).
 It based on the algorithm proposed in our [recent paper](https://arxiv.org/abs/1804.04739).
@@ -16,3 +16,8 @@ It based on the algorithm proposed in our [recent paper](https://arxiv.org/abs/1
 # Getting started
 
 ...
+
+# Development
+
+Run `pytest` to run unit tests.
+Run `ruff format` to format source code.

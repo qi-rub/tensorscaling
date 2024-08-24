@@ -1,0 +1,20 @@
+[project]
+name = "tensorscaling"
+version = "0.1.0"
+description = "This is a Python module and Jupyter notebook for tensor scaling, computing entanglement polytopes, and solving the one-body quantum marginal problem."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.1.0",
+    "scipy>=1.14.1",
+    "jupyter>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.2",
+]
