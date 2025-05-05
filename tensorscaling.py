@@ -277,6 +277,7 @@ def scale(
     it = 0
     psi_initial = psi
     gs = {k: np.eye(shape[k]) for k in targets}
+    max_dists = []
     while True:
         # compute current tensor and distances
         gs_after_Us = compose(gs, Us)
@@ -286,6 +287,7 @@ def scale(
         sys, max_dist = max(dists.items(), key=operator.itemgetter(1))
         if verbose:
             print(f"#{it:03d}: max_dist = {max_dist:.8f} @ sys = {sys}")
+        max_dists.append(max_dist)
 
         # check if we are done
         if max_dist <= eps:
@@ -303,7 +305,7 @@ def scale(
             for k in targets:
                 _, l = ql_decomposition(gs[k])
                 log_cap -= targets[k] @ np.log(np.abs(np.diag(l)))
-            return Result(True, it, max_dist, gs, Us, psi, log_cap)
+            return Result(True, it, max_dist, gs, Us, psi, log_cap), max_dists
 
         if max_iterations and it == max_iterations:
             break
@@ -315,7 +317,7 @@ def scale(
 
     if verbose:
         print("did not converge!")
-    return Result(False, it, max_dist, gs, Us, psi, log_cap=None)
+    return Result(False, it, max_dist, gs, Us, psi, log_cap=None), max_dists
 
 
 def scale_symmetric(
